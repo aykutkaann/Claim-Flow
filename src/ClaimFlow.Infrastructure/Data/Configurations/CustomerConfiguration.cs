@@ -28,6 +28,10 @@ namespace ClaimFlow.Infrastructure.Data.Configurations
             builder.Property(c => c.Email)
                    .IsRequired()
                    .HasMaxLength(150);
+
+
+            builder.Property(c => c.CreatedAt).HasColumnType("timestamptz");
+
             builder.Property(c => c.ProfileData).HasColumnType("jsonb");
 
 

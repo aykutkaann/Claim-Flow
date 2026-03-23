@@ -1,4 +1,5 @@
-﻿using ClaimFlow.Domain.Entities;
+﻿using ClaimFlow.Application.Interfaces;
+using ClaimFlow.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
@@ -7,7 +8,7 @@ using System.Text;
 
 namespace ClaimFlow.Infrastructure.Data
 {
-    public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+    public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options), IAppDbContext
     {
         public DbSet<Customer> Customers { get; set; }
         public DbSet<Tenant> Tenants { get; set; }
