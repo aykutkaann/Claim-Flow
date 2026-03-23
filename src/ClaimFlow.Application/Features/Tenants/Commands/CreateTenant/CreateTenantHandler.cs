@@ -23,7 +23,9 @@ namespace ClaimFlow.Application.Features.Tenants.Commands.CreateTenant
             {
                 Id = Guid.NewGuid(),
                 Name = request.Name,
-                Code = request.Code
+                Code = request.Code,
+                CreatedAt = DateTime.UtcNow
+
             };
 
             _context.Tenants.Add(tenant);

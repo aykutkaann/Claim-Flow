@@ -23,10 +23,11 @@ namespace ClaimFlow.Application.Features.Customers.Commands.CreateCustomer
             var customer = new Customer
             {
                 Id = Guid.NewGuid(),
-               FullName = request.FullName,
-               Email = request.Email,
-               TenantId = request.TenantId
-                
+                FullName = request.FullName,
+                Email = request.Email,
+                TenantId = request.TenantId,
+                CreatedAt = DateTime.UtcNow
+
             };
 
             _context.Customers.Add(customer);
