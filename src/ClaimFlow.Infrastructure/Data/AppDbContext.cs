@@ -1,0 +1,27 @@
+﻿using ClaimFlow.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Text;
+
+namespace ClaimFlow.Infrastructure.Data
+{
+    public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+    {
+        public DbSet<Customer> Customers { get; set; }
+        public DbSet<Tenant> Tenants { get; set; }
+        public DbSet<Premium> Premia { get; set; }
+        public DbSet<Policy> Policies { get; set; }
+        public DbSet<Coverage> Coverages { get; set; }
+        public DbSet<Beneficiary> Beneficiaries  { get; set; }
+
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+            base.OnModelCreating(modelBuilder);
+        }
+
+    }
+}
