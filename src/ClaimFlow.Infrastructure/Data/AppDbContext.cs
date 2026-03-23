@@ -17,6 +17,12 @@ namespace ClaimFlow.Infrastructure.Data
         public DbSet<Coverage> Coverages { get; set; }
         public DbSet<Beneficiary> Beneficiaries  { get; set; }
 
+        //claim entities
+
+        public DbSet<Claim> Claims { get; set; }
+        public DbSet<ClaimStatusHistory> Histories { get; set; }
+        public DbSet<ClaimDocument> Documents { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

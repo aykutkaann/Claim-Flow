@@ -16,6 +16,13 @@ namespace ClaimFlow.Application.Interfaces
         DbSet<Coverage> Coverages { get; }
         DbSet<Beneficiary> Beneficiaries { get; }
 
+
+        //Claim entities
+        DbSet<Claim> Claims { get; }
+        DbSet<ClaimStatusHistory> Histories { get; }
+        DbSet<ClaimDocument> Documents { get; }
+
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 
     }

@@ -15,6 +15,9 @@ namespace ClaimFlow.Domain.Entities
         public ICollection<Customer> Customers { get; set; } = new HashSet<Customer>();
         public ICollection<Policy> Policies { get; set; } = new HashSet<Policy>();
 
+        public ICollection<Claim> Claims { get; set; } = new HashSet<Claim>();
+
+
 
     }
 }

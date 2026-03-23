@@ -25,6 +25,10 @@ namespace ClaimFlow.Domain.Entities
 
         public ICollection<Premium> Premia { get; set; } = new HashSet<Premium>();
 
+        public ICollection<Claim> Claims { get; set; } = new HashSet<Claim>();
+
+
+
 
     }
 }
