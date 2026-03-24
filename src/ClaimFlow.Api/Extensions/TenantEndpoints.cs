@@ -13,7 +13,7 @@ namespace ClaimFlow.Api.Extensions
             var group = routes.MapGroup("/api/tenants");
 
 
-            group.MapPost("/api/tenants", async (CreateTenantCommand command, IMediator mediator) =>
+            group.MapPost("/", async (CreateTenantCommand command, IMediator mediator) =>
             {
 
                 var id = await mediator.Send(command);
@@ -21,7 +21,7 @@ namespace ClaimFlow.Api.Extensions
 
             });
 
-            group.MapGet("/api/tenants", async (IMediator mediator) =>
+            group.MapGet("/", async (IMediator mediator) =>
             {
                 var tenants = await mediator.Send(new GetTenantsQuery());
 
@@ -29,7 +29,7 @@ namespace ClaimFlow.Api.Extensions
 
             });
 
-            group.MapGet("/api/tenants/{id}", async (Guid id, IMediator mediator) =>
+            group.MapGet("/{id:guid}", async (Guid id, IMediator mediator) =>
             {
                 var tenant = await mediator.Send(new GetTenantByIdQuery(id));
 

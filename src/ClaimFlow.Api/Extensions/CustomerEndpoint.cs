@@ -13,7 +13,7 @@ namespace ClaimFlow.Api.Extensions
             var group = routes.MapGroup("/api/customers");
 
 
-            group.MapPost("/api/customers", async (CreateCustomerCommand command, IMediator mediator) =>
+            group.MapPost("/", async (CreateCustomerCommand command, IMediator mediator) =>
             {
 
                 var id = await mediator.Send(command);
@@ -22,7 +22,7 @@ namespace ClaimFlow.Api.Extensions
 
             });
 
-            group.MapGet("/api/customers", async (IMediator mediator) =>
+            group.MapGet("/", async (IMediator mediator) =>
             {
                 var customers =  await mediator.Send(new GetCustomersQuery());
 
@@ -30,7 +30,7 @@ namespace ClaimFlow.Api.Extensions
 
             });
 
-            group.MapGet("/api/customers/{id}", async (Guid id, IMediator mediator) =>
+            group.MapGet("/{id:guid}", async (Guid id, IMediator mediator) =>
             {
                 var customer = await mediator.Send(new GetCustomerByIdQuery(id));
 

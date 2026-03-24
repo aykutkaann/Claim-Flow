@@ -68,6 +68,8 @@ app.MapCustomerEndpoint();
 
 app.MapPolicyEndpoint();
 
+app.MapClaimEndpoint();
+
 
 app.Run();
 

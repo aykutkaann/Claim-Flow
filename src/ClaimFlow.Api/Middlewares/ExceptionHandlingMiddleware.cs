@@ -63,11 +63,13 @@ namespace ClaimFlow.Api.Middlewares
             context.Response.ContentType = "application/json";
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
+            var env = context.RequestServices.GetRequiredService<IHostEnvironment>();
+
             var response = new
             {
                 Title = "Internal Server Error",
                 Status = (int)HttpStatusCode.InternalServerError,
-                Detail = "Unexcepted error."
+                Detail = env.IsDevelopment() ? exception.Message : "Unexpected error."
             };
 
             await context.Response.WriteAsync(JsonSerializer.Serialize(response));
