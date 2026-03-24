@@ -4,21 +4,17 @@ using ClaimFlow.Domain.Enums;
 using ClaimFlow.Domain.Events;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Text;
+using System.Text.Json;
 
 namespace ClaimFlow.Application.Features.Claims.Commands
 {
     public class SubmitClaimHandler : IRequestHandler<SubmitClaimCommand, Guid>
     {
         private readonly IAppDbContext _context;
-        private readonly IPublisher _publisher;
 
-        public SubmitClaimHandler(IAppDbContext context, IPublisher publisher)
+        public SubmitClaimHandler(IAppDbContext context)
         {
             _context = context;
-            _publisher = publisher;
         }
 
         public async Task<Guid> Handle(SubmitClaimCommand request, CancellationToken cancellationToken)
@@ -43,18 +39,27 @@ namespace ClaimFlow.Application.Features.Claims.Commands
                 ClaimedAmount = request.ClaimedAmount,
                 Status = ClaimStatus.Submitted,
                 SubmittedAt = DateTime.UtcNow
-
-
             };
 
             _context.Claims.Add(claim);
-            await _context.SaveChangesAsync(cancellationToken);
 
-            await _publisher.Publish(new ClaimSubmittedEvent(
+            // Save event to outbox — same transaction as the claim
+            var claimEvent = new ClaimSubmittedEvent(
                 claim.Id,
                 claim.ClaimNumber,
                 claim.PolicyId,
-                claim.TenantId), cancellationToken);
+                claim.TenantId);
+
+            _context.Messages.Add(new OutboxMessage
+            {
+                Id = Guid.NewGuid(),
+                Type = nameof(ClaimSubmittedEvent),
+                Content = JsonSerializer.Serialize(claimEvent),
+                OccuredAt = DateTime.UtcNow
+            });
+
+            // One SaveChangesAsync = one transaction = both claim AND event saved together
+            await _context.SaveChangesAsync(cancellationToken);
 
             return claim.Id;
         }
@@ -63,6 +68,5 @@ namespace ClaimFlow.Application.Features.Claims.Commands
         {
             return $"CLM-{DateTime.Now.Year}-{new Random().Next(1000, 9999)}";
         }
-
     }
 }

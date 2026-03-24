@@ -24,6 +24,11 @@ namespace ClaimFlow.Infrastructure.Data
         public DbSet<ClaimDocument> Documents { get; set; }
 
 
+        //Outbox
+
+        public DbSet<OutboxMessage> Messages { get; set; }
+
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());

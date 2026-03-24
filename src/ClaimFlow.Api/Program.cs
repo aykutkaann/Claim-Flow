@@ -36,6 +36,12 @@ builder.Services.AddValidatorsFromAssembly(typeof(CreateTenantCommand).Assembly)
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
 
+//OutBoxProcessor
+builder.Services.AddHostedService<ClaimFlow.Infrastructure.BackgroundServices.OutboxProcessor>();
+
+
+
+
 
 
 var app = builder.Build();

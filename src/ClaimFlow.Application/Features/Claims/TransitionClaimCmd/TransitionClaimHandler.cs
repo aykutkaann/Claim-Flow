@@ -5,18 +5,17 @@ using ClaimFlow.Domain.Events;
 using ClaimFlow.Domain.StateMachines;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace ClaimFlow.Application.Features.Claims.TransitionClaimCmd
 {
     public class TransitionClaimHandler : IRequestHandler<TransitionClaimCommand, Unit>
     {
         private readonly IAppDbContext _context;
-        private readonly IPublisher _publisher;
 
-        public TransitionClaimHandler(IAppDbContext context, IPublisher publisher)
+        public TransitionClaimHandler(IAppDbContext context)
         {
             _context = context;
-            _publisher = publisher;
         }
 
         public async Task<Unit> Handle(TransitionClaimCommand request, CancellationToken cancellationToken)
@@ -51,29 +50,53 @@ namespace ClaimFlow.Application.Features.Claims.TransitionClaimCmd
 
             _context.Histories.Add(history);
 
-            await _context.SaveChangesAsync(cancellationToken);
-
-            // Publish the general transition event
-            await _publisher.Publish(new ClaimTransitionedEvent(
+            // Outbox: general transition event
+            var transitionEvent = new ClaimTransitionedEvent(
                 claim.Id,
                 fromStatus.ToString(),
                 toStatus.ToString(),
                 request.ChangedBy,
-                request.Notes), cancellationToken);
+                request.Notes);
 
-            // Publish specific events for approve/reject
+            _context.Messages.Add(new OutboxMessage
+            {
+                Id = Guid.NewGuid(),
+                Type = nameof(ClaimTransitionedEvent),
+                Content = JsonSerializer.Serialize(transitionEvent),
+                OccuredAt = DateTime.UtcNow
+            });
+
+            // Outbox: specific events for approve/reject
             if (request.Trigger == ClaimTrigger.Approve)
             {
-                await _publisher.Publish(new ClaimApprovedEvent(
+                var approvedEvent = new ClaimApprovedEvent(
                     claim.Id,
-                    claim.ApprovedAmount ?? claim.ClaimedAmount), cancellationToken);
+                    claim.ApprovedAmount ?? claim.ClaimedAmount);
+
+                _context.Messages.Add(new OutboxMessage
+                {
+                    Id = Guid.NewGuid(),
+                    Type = nameof(ClaimApprovedEvent),
+                    Content = JsonSerializer.Serialize(approvedEvent),
+                    OccuredAt = DateTime.UtcNow
+                });
             }
             else if (request.Trigger == ClaimTrigger.Reject)
             {
-                await _publisher.Publish(new ClaimRejectedEvent(
+                var rejectedEvent = new ClaimRejectedEvent(
                     claim.Id,
-                    request.Notes ?? "No reason provided"), cancellationToken);
+                    request.Notes ?? "No reason provided");
+
+                _context.Messages.Add(new OutboxMessage
+                {
+                    Id = Guid.NewGuid(),
+                    Type = nameof(ClaimRejectedEvent),
+                    Content = JsonSerializer.Serialize(rejectedEvent),
+                    OccuredAt = DateTime.UtcNow
+                });
             }
+
+            await _context.SaveChangesAsync(cancellationToken);
 
             return Unit.Value;
         }

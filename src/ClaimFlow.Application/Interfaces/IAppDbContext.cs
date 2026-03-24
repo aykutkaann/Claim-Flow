@@ -23,6 +23,9 @@ namespace ClaimFlow.Application.Interfaces
         DbSet<ClaimDocument> Documents { get; }
 
 
+        DbSet<OutboxMessage> Messages { get; }
+
+
         Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 
     }
