@@ -62,5 +62,18 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  ui:
+    build:
+      context: ./client 
+      dockerfile: Dockerfile
+    container_name: claimflow-ui
+    ports:
+      - "3000:80" 
+    environment:
+      - VITE_API_URL=http://localhost:5000/api 
+    depends_on:
+      - api
+
+
 volumes:
   pgdata:

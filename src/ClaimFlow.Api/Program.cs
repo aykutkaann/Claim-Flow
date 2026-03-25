@@ -37,6 +37,17 @@ try
     builder.Services.AddEndpointsApiExplorer();
     builder.Services.AddSwaggerGen();
 
+    // CORS for React frontend
+    builder.Services.AddCors(options =>
+    {
+        options.AddDefaultPolicy(policy =>
+        {
+            policy.WithOrigins("http://localhost:3000", "http://localhost:3001")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod();
+        });
+    });
+
     // MediatR
     builder.Services.AddMediatR(cfg =>
         cfg.RegisterServicesFromAssembly(typeof(CreateTenantCommand).Assembly));
@@ -125,6 +136,9 @@ try
         app.UseSwagger();
         app.UseSwaggerUI();
     }
+
+    app.UseCors();
+
 
     app.UseMiddleware<ExceptionHandlingMiddleware>();
     app.UseHttpsRedirection();
