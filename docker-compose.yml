@@ -64,13 +64,11 @@ services:
 
   ui:
     build:
-      context: ./client 
+      context: ./client
       dockerfile: Dockerfile
     container_name: claimflow-ui
     ports:
-      - "3000:80" 
-    environment:
-      - VITE_API_URL=http://localhost:5000/api 
+      - "3000:80"
     depends_on:
       - api
 

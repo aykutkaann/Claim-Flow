@@ -80,8 +80,15 @@ namespace ClaimFlow.Infrastructure.BackgroundServices
                     var subEvt = JsonSerializer.Deserialize<ClaimSubmittedEvent>(message.Content);
                     if (subEvt != null)
                     {
-                        await publishEndpoint.Publish(new ClaimSubmittedMessage(
-                            subEvt.ClaimId, subEvt.ClaimNumber, subEvt.PolicyId, subEvt.TenantId, subEvt.Description, subEvt.ClaimedAmount), ct);
+                        await publishEndpoint.Publish(new ClaimSubmittedMessage
+                        {
+                            ClaimId = subEvt.ClaimId,
+                            ClaimNumber = subEvt.ClaimNumber,
+                            PolicyId = subEvt.PolicyId,
+                            TenantId = subEvt.TenantId,
+                            Description = subEvt.Description,
+                            ClaimedAmount = subEvt.ClaimedAmount
+                        }, ct);
                     }
                     break;
 
@@ -89,8 +96,12 @@ namespace ClaimFlow.Infrastructure.BackgroundServices
                     var appEvt = JsonSerializer.Deserialize<ClaimApprovedEvent>(message.Content);
                     if (appEvt != null)
                     {
-                        await publishEndpoint.Publish(new ClaimApprovedMessage(
-                            appEvt.ClaimId, appEvt.ClaimNumber, appEvt.ApprovedAmount), ct);
+                        await publishEndpoint.Publish(new ClaimApprovedMessage
+                        {
+                            ClaimId = appEvt.ClaimId,
+                            ClaimNumber = appEvt.ClaimNumber,
+                            ApprovedAmount = appEvt.ApprovedAmount
+                        }, ct);
                     }
                     break;
 
@@ -98,8 +109,12 @@ namespace ClaimFlow.Infrastructure.BackgroundServices
                     var rejEvt = JsonSerializer.Deserialize<ClaimRejectedEvent>(message.Content);
                     if (rejEvt != null)
                     {
-                        await publishEndpoint.Publish(new ClaimRejectedMessage(
-                            rejEvt.ClaimId, rejEvt.ClaimNumber, rejEvt.Reason), ct);
+                        await publishEndpoint.Publish(new ClaimRejectedMessage
+                        {
+                            ClaimId = rejEvt.ClaimId,
+                            ClaimNumber = rejEvt.ClaimNumber,
+                            Reason = rejEvt.Reason
+                        }, ct);
                     }
                     break;
 
@@ -107,8 +122,13 @@ namespace ClaimFlow.Infrastructure.BackgroundServices
                     var transEvt = JsonSerializer.Deserialize<ClaimTransitionedEvent>(message.Content);
                     if (transEvt != null)
                     {
-                        await publishEndpoint.Publish(new ClaimTransitionedMessage(
-                            transEvt.ClaimId, transEvt.FromStatus, transEvt.ToStatus, transEvt.ChangedBy), ct);
+                        await publishEndpoint.Publish(new ClaimTransitionedMessage
+                        {
+                            ClaimId = transEvt.ClaimId,
+                            FromStatus = transEvt.FromStatus,
+                            ToStatus = transEvt.ToStatus,
+                            ChangedBy = transEvt.ChangedBy
+                        }, ct);
                     }
                     break;
                 default:

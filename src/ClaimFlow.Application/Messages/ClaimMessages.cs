@@ -4,31 +4,35 @@ using System.Text;
 
 namespace ClaimFlow.Application.Messages
 {
-    public record ClaimSubmittedMessage(
-        Guid ClaimId,
-        string ClaimNumber,
-        Guid PolicyId,
-        Guid TenantId,
-        string Description,
-        decimal ClaimedAmount
-        );
+    public class ClaimSubmittedMessage
+    {
+        public Guid ClaimId { get; set; }
+        public string ClaimNumber { get; set; } = string.Empty;
+        public Guid PolicyId { get; set; }
+        public Guid TenantId { get; set; }
+        public string Description { get; set; } = string.Empty;
+        public decimal ClaimedAmount { get; set; }
+    }
 
-    public record ClaimTransitionedMessage(
-        Guid ClaimId,
-        string FromStatus,
-        string ToStatus,
-        string ChangedBy
-        );
+    public class ClaimTransitionedMessage
+    {
+        public Guid ClaimId { get; set; }
+        public string FromStatus { get; set; } = string.Empty;
+        public string ToStatus { get; set; } = string.Empty;
+        public string ChangedBy { get; set; } = string.Empty;
+    }
 
-    public record ClaimApprovedMessage(
-        Guid ClaimId,
-        string ClaimNumber,
-        decimal ApprovedAmount
-        );
+    public class ClaimApprovedMessage
+    {
+        public Guid ClaimId { get; set; }
+        public string ClaimNumber { get; set; } = string.Empty;
+        public decimal ApprovedAmount { get; set; }
+    }
 
-    public record ClaimRejectedMessage(
-        Guid ClaimId,
-        string ClaimNumber,
-        string Reason
-        );
+    public class ClaimRejectedMessage
+    {
+        public Guid ClaimId { get; set; }
+        public string ClaimNumber { get; set; } = string.Empty;
+        public string Reason { get; set; } = string.Empty;
+    }
 }

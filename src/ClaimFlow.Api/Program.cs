@@ -105,8 +105,7 @@ try
 
     // Health checks
     builder.Services.AddHealthChecks()
-        .AddNpgSql(
-            builder.Configuration.GetConnectionString("DefaultConnection")!,
+        .AddDbContextCheck<AppDbContext>(
             name: "postgresql",
             tags: new[] { "db", "ready" });
 
@@ -128,14 +127,18 @@ try
 
     var app = builder.Build();
 
+    // Auto-apply migrations on startup
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Database.Migrate();
+    }
+
     // Serilog request logging (replaces default Microsoft request logging)
     app.UseSerilogRequestLogging();
 
-    if (app.Environment.IsDevelopment())
-    {
-        app.UseSwagger();
-        app.UseSwaggerUI();
-    }
+    app.UseSwagger();
+    app.UseSwaggerUI();
 
     app.UseCors();
 

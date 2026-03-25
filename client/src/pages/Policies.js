@@ -1,22 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import api from '../api';
+import React, { useState, useEffect } from "react";
+import api from "../api";
 
 const productTypes = [
-  { value: 0, label: 'Health' },
-  { value: 1, label: 'Auto' },
-  { value: 2, label: 'Home' },
-  { value: 3, label: 'Travel' },
+  { value: 0, label: "Health" },
+  { value: 1, label: "Auto" },
+  { value: 2, label: "Home" },
+  { value: 3, label: "Travel" },
 ];
 
 function Policies() {
   const [policies, setPolicies] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [form, setForm] = useState({
-    policyNumber: '',
-    customerId: '',
+    policyNumber: "",
+    customerId: "",
     productType: 0,
-    startDate: '',
-    endDate: '',
+    startDate: "",
+    endDate: "",
   });
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
@@ -29,13 +29,13 @@ function Policies() {
     setLoading(true);
     try {
       const [polRes, custRes] = await Promise.all([
-        api.get('/api/policies'),
-        api.get('/api/customers'),
+        api.get("/api/policies"),
+        api.get("/api/customers"),
       ]);
       setPolicies(polRes.data);
       setCustomers(custRes.data);
     } catch (err) {
-      setMessage({ type: 'error', text: 'Failed to load data.' });
+      setMessage({ type: "error", text: "Failed to load data." });
     }
     setLoading(false);
   }
@@ -44,23 +44,25 @@ function Policies() {
     e.preventDefault();
     setMessage(null);
     try {
-      await api.post('/api/policies', {
+      await api.post("/api/policies", {
         ...form,
         productType: Number(form.productType),
       });
-      setMessage({ type: 'success', text: 'Policy created successfully!' });
+      setMessage({ type: "success", text: "Policy created successfully!" });
       setForm({
-        policyNumber: '',
-        customerId: '',
+        policyNumber: "",
+        customerId: "",
         productType: 0,
-        startDate: '',
-        endDate: '',
+        startDate: "",
+        endDate: "",
       });
       loadData();
     } catch (err) {
       const errorMsg =
-        err.response?.data?.title || err.response?.data || 'Failed to create policy.';
-      setMessage({ type: 'error', text: String(errorMsg) });
+        err.response?.data?.title ||
+        err.response?.data ||
+        "Failed to create policy.";
+      setMessage({ type: "error", text: String(errorMsg) });
     }
   }
 
@@ -92,7 +94,7 @@ function Policies() {
                 onChange={(e) =>
                   setForm({ ...form, policyNumber: e.target.value })
                 }
-                placeholder="POL-001"
+                placeholder="POL-2026-00001"
                 required
               />
             </div>
@@ -175,13 +177,13 @@ function Policies() {
               <tbody>
                 {policies.map((p) => (
                   <tr key={p.id}>
-                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                    <td style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>
                       {p.id?.substring(0, 8)}...
                     </td>
                     <td>
                       <strong>{p.policyNumber}</strong>
                     </td>
-                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                    <td style={{ fontFamily: "monospace", fontSize: "0.8rem" }}>
                       {p.customerId?.substring(0, 8)}...
                     </td>
                     <td>{getProductLabel(p.productType)}</td>
@@ -191,7 +193,10 @@ function Policies() {
                 ))}
                 {policies.length === 0 && (
                   <tr>
-                    <td colSpan="6" style={{ textAlign: 'center', color: '#636e72' }}>
+                    <td
+                      colSpan="6"
+                      style={{ textAlign: "center", color: "#636e72" }}
+                    >
                       No policies found.
                     </td>
                   </tr>
