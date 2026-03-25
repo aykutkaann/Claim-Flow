@@ -5,6 +5,6 @@ using MediatR;
 
 namespace ClaimFlow.Domain.Events
 {
-    public record ClaimSubmittedEvent(Guid ClaimId, string ClaimNumber, Guid PolicyId, Guid TenantId) : INotification;
+    public record ClaimSubmittedEvent(Guid ClaimId, string ClaimNumber, Guid PolicyId, Guid TenantId, string Description, decimal ClaimedAmount) : INotification;
 
 }

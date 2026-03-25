@@ -48,7 +48,9 @@ namespace ClaimFlow.Application.Features.Claims.Commands
                 claim.Id,
                 claim.ClaimNumber,
                 claim.PolicyId,
-                claim.TenantId);
+                claim.TenantId,
+                claim.Description,
+                claim.ClaimedAmount);
 
             _context.Messages.Add(new OutboxMessage
             {

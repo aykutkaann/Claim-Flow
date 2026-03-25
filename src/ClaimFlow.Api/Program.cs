@@ -3,8 +3,10 @@ using ClaimFlow.Api.Middlewares;
 using ClaimFlow.Application.Behaviors;
 using ClaimFlow.Application.Features.Tenants.Commands.CreateTenant;
 using ClaimFlow.Application.Interfaces;
+using ClaimFlow.Infrastructure.Consumers;
 using ClaimFlow.Infrastructure.Data;
 using FluentValidation;
+using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
@@ -38,6 +40,25 @@ builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBeh
 
 //OutBoxProcessor
 builder.Services.AddHostedService<ClaimFlow.Infrastructure.BackgroundServices.OutboxProcessor>();
+
+
+//MassTransit
+
+builder.Services.AddMassTransit(x =>
+{
+    x.AddConsumers(typeof(ClaimSubmittedConsumer).Assembly);
+
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host("localhost", "/", h =>
+        {
+            h.Username("claimflow");
+            h.Password("claimflow_dev_2026");
+        });
+
+        cfg.ConfigureEndpoints(context);
+    });
+});
 
 
 

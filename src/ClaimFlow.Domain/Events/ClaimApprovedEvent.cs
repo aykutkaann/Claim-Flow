@@ -6,5 +6,8 @@ using System.Text;
 namespace ClaimFlow.Domain.Events
 {
 
-    public record ClaimApprovedEvent(Guid ClaimId, decimal ApprovedAmount) : MediatR.INotification;
+    public record ClaimApprovedEvent(
+        Guid ClaimId,
+        string ClaimNumber,
+        decimal ApprovedAmount) : MediatR.INotification;
 }

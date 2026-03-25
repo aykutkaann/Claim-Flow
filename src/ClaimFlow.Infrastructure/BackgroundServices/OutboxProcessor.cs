@@ -1,6 +1,8 @@
-﻿using ClaimFlow.Domain.Entities;
+﻿using ClaimFlow.Application.Messages;
+using ClaimFlow.Domain.Entities;
 using ClaimFlow.Domain.Events;
 using ClaimFlow.Infrastructure.Data;
+using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,7 +44,7 @@ namespace ClaimFlow.Infrastructure.BackgroundServices
         {
             using var scope = _scopeFactory.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var publisher = scope.ServiceProvider.GetRequiredService<IPublisher>();
+            var publishEndpoint = scope.ServiceProvider.GetRequiredService<IPublishEndpoint>();
 
             var messages = await context.Messages
                 .Where(m => m.ProcessedAt == null)
@@ -54,19 +56,14 @@ namespace ClaimFlow.Infrastructure.BackgroundServices
             {
                 try
                 {
-                    var notification = DeserializeEvent(message.Type, message.Content);
-
-                    if (notification != null)
-                    {
-                        await publisher.Publish(notification, stoppingToken);
-                        _logger.LogInformation("Published outbox message {Type} for {Id}.", message.Type, message.Id);
-                    }
+                    await PublishMessageBasedOnType(message, publishEndpoint, stoppingToken);
 
                     message.ProcessedAt = DateTime.UtcNow;
+                    _logger.LogInformation("Successfully published outbox message {Type} to message broker.", message.Type);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to process outbox message {Id}.", message.Id);
+                    _logger.LogError(ex, "Failed to publish outbox message {Id} to broker.", message.Id);
                     message.Error = ex.Message;
                 }
             }
@@ -75,16 +72,52 @@ namespace ClaimFlow.Infrastructure.BackgroundServices
                 await context.SaveChangesAsync(stoppingToken);
         }
 
-        private INotification? DeserializeEvent(string type, string content)
+        private async Task PublishMessageBasedOnType(OutboxMessage message, IPublishEndpoint publishEndpoint, CancellationToken ct)
         {
-            return type switch
+            switch (message.Type)
             {
-                nameof(ClaimSubmittedEvent) => JsonSerializer.Deserialize<ClaimSubmittedEvent>(content),
-                nameof(ClaimTransitionedEvent) => JsonSerializer.Deserialize<ClaimTransitionedEvent>(content),
-                nameof(ClaimApprovedEvent) => JsonSerializer.Deserialize<ClaimApprovedEvent>(content),
-                nameof(ClaimRejectedEvent) => JsonSerializer.Deserialize<ClaimRejectedEvent>(content),
-                _ => null
-            };
+                case nameof(ClaimSubmittedEvent):
+                    var subEvt = JsonSerializer.Deserialize<ClaimSubmittedEvent>(message.Content);
+                    if (subEvt != null)
+                    {
+                        await publishEndpoint.Publish(new ClaimSubmittedMessage(
+                            subEvt.ClaimId, subEvt.ClaimNumber, subEvt.PolicyId, subEvt.TenantId, subEvt.Description, subEvt.ClaimedAmount), ct);
+                    }
+                    break;
+
+                case nameof(ClaimApprovedEvent):
+                    var appEvt = JsonSerializer.Deserialize<ClaimApprovedEvent>(message.Content);
+                    if (appEvt != null)
+                    {
+                        await publishEndpoint.Publish(new ClaimApprovedMessage(
+                            appEvt.ClaimId, appEvt.ClaimNumber, appEvt.ApprovedAmount), ct);
+                    }
+                    break;
+
+                case nameof(ClaimRejectedEvent):
+                    var rejEvt = JsonSerializer.Deserialize<ClaimRejectedEvent>(message.Content);
+                    if (rejEvt != null)
+                    {
+                        await publishEndpoint.Publish(new ClaimRejectedMessage(
+                            rejEvt.ClaimId, rejEvt.ClaimNumber, rejEvt.Reason), ct);
+                    }
+                    break;
+
+                case nameof(ClaimTransitionedEvent):
+                    var transEvt = JsonSerializer.Deserialize<ClaimTransitionedEvent>(message.Content);
+                    if (transEvt != null)
+                    {
+                        await publishEndpoint.Publish(new ClaimTransitionedMessage(
+                            transEvt.ClaimId, transEvt.FromStatus, transEvt.ToStatus, transEvt.ChangedBy), ct);
+                    }
+                    break;
+                default:
+                    _logger.LogWarning("Unknown outbox message type: {Type}", message.Type);
+                    break;
+
+
+
+            }
         }
     }
 }

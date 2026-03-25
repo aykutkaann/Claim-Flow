@@ -4,7 +4,10 @@ using System.Text;
 
 namespace ClaimFlow.Domain.Events
 {
-    public record ClaimRejectedEvent(Guid ClaimId, string Reason) : MediatR.INotification;
+    public record ClaimRejectedEvent(
+        Guid ClaimId,
+        string ClaimNumber,
+        string Reason) : MediatR.INotification;
  
 
    

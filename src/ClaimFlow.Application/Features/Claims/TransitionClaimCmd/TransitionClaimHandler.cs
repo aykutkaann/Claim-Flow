@@ -71,6 +71,7 @@ namespace ClaimFlow.Application.Features.Claims.TransitionClaimCmd
             {
                 var approvedEvent = new ClaimApprovedEvent(
                     claim.Id,
+                    claim.ClaimNumber,
                     claim.ApprovedAmount ?? claim.ClaimedAmount);
 
                 _context.Messages.Add(new OutboxMessage
@@ -85,6 +86,7 @@ namespace ClaimFlow.Application.Features.Claims.TransitionClaimCmd
             {
                 var rejectedEvent = new ClaimRejectedEvent(
                     claim.Id,
+                    claim.ClaimNumber,
                     request.Notes ?? "No reason provided");
 
                 _context.Messages.Add(new OutboxMessage
