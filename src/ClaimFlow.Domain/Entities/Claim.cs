@@ -29,6 +29,14 @@ namespace ClaimFlow.Domain.Entities
         public Tenant Tenant { get; set; }
 
 
+        public Pgvector.Vector? Embedding { get; set; }
+
+        public bool IsFraud { get; set; }
+
+        // Full-text search vector — populated by PostgreSQL trigger
+        public NpgsqlTypes.NpgsqlTsVector? SearchVector { get; set; }
+
+
         public ICollection<ClaimStatusHistory> Histories { get; set; } = new HashSet<ClaimStatusHistory>();
         public ICollection<ClaimDocument> Documents { get; set; } = new HashSet<ClaimDocument>();
 

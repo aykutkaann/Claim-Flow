@@ -3,7 +3,7 @@ services:
     image: pgvector/pgvector:pg16
     container_name: claimflow-db
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_DB: claimflow
       POSTGRES_USER: claimflow_admin
@@ -15,6 +15,18 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    container_name: claimflow-pgbouncer
+    ports:
+      - "6432:6432"
+    volumes:
+      - ./pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
+      - ./userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -30,6 +42,25 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: src/ClaimFlow.Api/Dockerfile
+    container_name: claimflow-api
+    ports:
+      - "5000:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=claimflow;Username=claimflow_admin;Password=claimflow_dev_2026"
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Username: claimflow
+      RabbitMq__Password: claimflow_dev_2026
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
 
 volumes:
   pgdata:

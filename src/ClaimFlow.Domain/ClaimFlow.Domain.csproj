@@ -9,6 +9,8 @@
   <ItemGroup>
     <PackageReference Include="MediatR" Version="14.1.0" />
     <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="11.0.0" />
+    <PackageReference Include="Npgsql" Version="10.0.2" />
+    <PackageReference Include="Pgvector" Version="0.3.2" />
     <PackageReference Include="Stateless" Version="5.20.1" />
   </ItemGroup>
 

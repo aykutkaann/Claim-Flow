@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore.Migrations;
+using NpgsqlTypes;
+using Pgvector;
 
 #nullable disable
 
@@ -12,6 +14,25 @@ namespace ClaimFlow.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AlterDatabase()
+                .Annotation("Npgsql:PostgresExtension:vector", ",,");
+
+            migrationBuilder.CreateTable(
+                name: "outbox_message",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Type = table.Column<string>(type: "text", nullable: false),
+                    Content = table.Column<string>(type: "text", nullable: false),
+                    OccuredAt = table.Column<DateTime>(type: "timestamptz", nullable: false),
+                    ProcessedAt = table.Column<DateTime>(type: "timestamptz", nullable: true),
+                    Error = table.Column<string>(type: "text", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_outbox_message", x => x.Id);
+                });
+
             migrationBuilder.CreateTable(
                 name: "tenants",
                 columns: table => new
@@ -34,7 +55,7 @@ namespace ClaimFlow.Infrastructure.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     FullName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     Email = table.Column<string>(type: "character varying(150)", maxLength: 150, nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamptz", nullable: false),
                     TenantId = table.Column<Guid>(type: "uuid", nullable: false),
                     ProfileData = table.Column<JsonDocument>(type: "jsonb", nullable: true)
                 },
@@ -101,6 +122,42 @@ namespace ClaimFlow.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "claims",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ClaimNumber = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    PolicyId = table.Column<Guid>(type: "uuid", nullable: false),
+                    TenantId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Description = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: false),
+                    ClaimedAmount = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
+                    ApprovedAmount = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: true),
+                    Status = table.Column<string>(type: "text", nullable: false),
+                    SubmittedAt = table.Column<DateTime>(type: "timestamptz", nullable: false),
+                    ResolvedAt = table.Column<DateTime>(type: "timestamptz", nullable: true),
+                    FraudRiskScore = table.Column<int>(type: "integer", nullable: true),
+                    Embedding = table.Column<Vector>(type: "vector(1536)", nullable: true),
+                    IsFraud = table.Column<bool>(type: "boolean", nullable: false),
+                    SearchVector = table.Column<NpgsqlTsVector>(type: "tsvector", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_claims", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_claims_policies_PolicyId",
+                        column: x => x.PolicyId,
+                        principalTable: "policies",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_claims_tenants_TenantId",
+                        column: x => x.TenantId,
+                        principalTable: "tenants",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "coverages",
                 columns: table => new
                 {
@@ -143,10 +200,86 @@ namespace ClaimFlow.Infrastructure.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "claim_docs",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ClaimId = table.Column<Guid>(type: "uuid", nullable: false),
+                    FileName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    FilePath = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    UploadedAt = table.Column<DateTime>(type: "timestamptz", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_claim_docs", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_claim_docs_claims_ClaimId",
+                        column: x => x.ClaimId,
+                        principalTable: "claims",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "claim_status_history",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    ClaimId = table.Column<Guid>(type: "uuid", nullable: false),
+                    FromStatus = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    ToStatus = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    ChangedAt = table.Column<DateTime>(type: "timestamptz", nullable: false),
+                    ChangedBy = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    Notes = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_claim_status_history", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_claim_status_history_claims_ClaimId",
+                        column: x => x.ClaimId,
+                        principalTable: "claims",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_beneficiaries_PolicyId",
                 table: "beneficiaries",
                 column: "PolicyId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_claim_docs_ClaimId",
+                table: "claim_docs",
+                column: "ClaimId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_claim_status_history_ClaimId",
+                table: "claim_status_history",
+                column: "ClaimId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_claims_ClaimNumber",
+                table: "claims",
+                column: "ClaimNumber",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_claims_PolicyId",
+                table: "claims",
+                column: "PolicyId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_claims_SearchVector",
+                table: "claims",
+                column: "SearchVector")
+                .Annotation("Npgsql:IndexMethod", "GIN");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_claims_TenantId",
+                table: "claims",
+                column: "TenantId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_coverages_PolicyId",
@@ -163,6 +296,11 @@ namespace ClaimFlow.Infrastructure.Migrations
                 name: "IX_customers_TenantId",
                 table: "customers",
                 column: "TenantId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_outbox_message_ProcessedAt",
+                table: "outbox_message",
+                column: "ProcessedAt");
 
             migrationBuilder.CreateIndex(
                 name: "IX_policies_CustomerId",
@@ -199,10 +337,22 @@ namespace ClaimFlow.Infrastructure.Migrations
                 name: "beneficiaries");
 
             migrationBuilder.DropTable(
+                name: "claim_docs");
+
+            migrationBuilder.DropTable(
+                name: "claim_status_history");
+
+            migrationBuilder.DropTable(
                 name: "coverages");
 
             migrationBuilder.DropTable(
+                name: "outbox_message");
+
+            migrationBuilder.DropTable(
                 name: "premiums");
+
+            migrationBuilder.DropTable(
+                name: "claims");
 
             migrationBuilder.DropTable(
                 name: "policies");

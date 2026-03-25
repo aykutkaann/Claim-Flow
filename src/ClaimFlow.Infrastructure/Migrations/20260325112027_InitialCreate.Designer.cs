@@ -7,14 +7,16 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using NpgsqlTypes;
+using Pgvector;
 
 #nullable disable
 
 namespace ClaimFlow.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260324160457_AddOutboxMessages")]
-    partial class AddOutboxMessages
+    [Migration("20260325112027_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,6 +26,7 @@ namespace ClaimFlow.Infrastructure.Migrations
                 .HasAnnotation("ProductVersion", "10.0.5")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("ClaimFlow.Domain.Entities.Beneficiary", b =>
@@ -80,14 +83,23 @@ namespace ClaimFlow.Infrastructure.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<Vector>("Embedding")
+                        .HasColumnType("vector(1536)");
+
                     b.Property<int?>("FraudRiskScore")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("IsFraud")
+                        .HasColumnType("boolean");
 
                     b.Property<Guid>("PolicyId")
                         .HasColumnType("uuid");
 
                     b.Property<DateTime?>("ResolvedAt")
                         .HasColumnType("timestamptz");
+
+                    b.Property<NpgsqlTsVector>("SearchVector")
+                        .HasColumnType("tsvector");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -105,6 +117,10 @@ namespace ClaimFlow.Infrastructure.Migrations
                         .IsUnique();
 
                     b.HasIndex("PolicyId");
+
+                    b.HasIndex("SearchVector");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("SearchVector"), "GIN");
 
                     b.HasIndex("TenantId");
 

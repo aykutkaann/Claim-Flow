@@ -1,4 +1,4 @@
-﻿using ClaimFlow.Application.Interfaces;
+using ClaimFlow.Application.Interfaces;
 using ClaimFlow.Domain.Entities;
 using ClaimFlow.Domain.Enums;
 using ClaimFlow.Domain.Events;
@@ -11,10 +11,17 @@ namespace ClaimFlow.Application.Features.Claims.Commands
     public class SubmitClaimHandler : IRequestHandler<SubmitClaimCommand, Guid>
     {
         private readonly IAppDbContext _context;
+        private readonly IEmbeddingService _embeddingService;
+        private readonly IFraudDetectionService _fraudDetectionService;
 
-        public SubmitClaimHandler(IAppDbContext context)
+        public SubmitClaimHandler(
+            IAppDbContext context,
+            IEmbeddingService embeddingService,
+            IFraudDetectionService fraudDetectionService)
         {
             _context = context;
+            _embeddingService = embeddingService;
+            _fraudDetectionService = fraudDetectionService;
         }
 
         public async Task<Guid> Handle(SubmitClaimCommand request, CancellationToken cancellationToken)
@@ -41,9 +48,25 @@ namespace ClaimFlow.Application.Features.Claims.Commands
                 SubmittedAt = DateTime.UtcNow
             };
 
+            // Generate embedding from claim description
+            var embeddingArray = await _embeddingService.GetEmbeddingAsync(claim.Description);
+            claim.Embedding = new Pgvector.Vector(embeddingArray);
+
             _context.Claims.Add(claim);
 
-            // Save event to outbox — same transaction as the claim
+            // Save claim + embedding first (fraud check needs the claim in DB)
+            await _context.SaveChangesAsync(cancellationToken);
+
+            // Run fraud detection
+            var fraudResult = await _fraudDetectionService.CheckFraudAsync(claim.Id);
+            claim.FraudRiskScore = fraudResult.FraudRiskScore;
+
+            if (fraudResult.FraudRiskScore > 60)
+            {
+                claim.IsFraud = true;
+            }
+
+            // Save event to outbox
             var claimEvent = new ClaimSubmittedEvent(
                 claim.Id,
                 claim.ClaimNumber,
@@ -60,7 +83,7 @@ namespace ClaimFlow.Application.Features.Claims.Commands
                 OccuredAt = DateTime.UtcNow
             });
 
-            // One SaveChangesAsync = one transaction = both claim AND event saved together
+            // Save fraud score update + outbox message
             await _context.SaveChangesAsync(cancellationToken);
 
             return claim.Id;

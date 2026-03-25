@@ -35,6 +35,15 @@ namespace ClaimFlow.Infrastructure.Data.Configurations
 
             builder.Property(c => c.ResolvedAt).HasColumnType("timestamptz");
 
+
+            builder.Property(c => c.Embedding).HasColumnType("vector(1536)");
+
+            builder.Property(c => c.SearchVector)
+                .HasColumnType("tsvector");
+
+            builder.HasIndex(c => c.SearchVector)
+                .HasMethod("GIN");
+
             builder.HasIndex(c => c.ClaimNumber)
                 .IsUnique();
 

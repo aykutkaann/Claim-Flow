@@ -5,98 +5,177 @@ using ClaimFlow.Application.Features.Tenants.Commands.CreateTenant;
 using ClaimFlow.Application.Interfaces;
 using ClaimFlow.Infrastructure.Consumers;
 using ClaimFlow.Infrastructure.Data;
+using ClaimFlow.Infrastructure.Jobs;
+using ClaimFlow.Infrastructure.Services;
 using FluentValidation;
+using Hangfire;
+using Hangfire.PostgreSql;
 using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using System.Reflection;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
+// Bootstrap Serilog early so startup errors are logged
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(new ConfigurationBuilder()
+        .AddJsonFile("appsettings.json")
+        .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production"}.json", optional: true)
+        .AddEnvironmentVariables()
+        .Build())
+    .Enrich.WithProperty("Application", "ClaimFlow")
+    .CreateLogger();
 
-
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
-
-
-//MediatR services
-builder.Services.AddMediatR(cfg =>
-    cfg.RegisterServicesFromAssembly(typeof(CreateTenantCommand).Assembly));
-
-
-//Db context services
-builder.Services.AddDbContext<AppDbContext>(options =>
+try
 {
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
-});
+    var builder = WebApplication.CreateBuilder(args);
 
-//Prodiver services
-builder.Services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+    // Replace default logging with Serilog
+    builder.Host.UseSerilog();
 
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen();
 
-//Validation services
-builder.Services.AddValidatorsFromAssembly(typeof(CreateTenantCommand).Assembly);
-builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+    // MediatR
+    builder.Services.AddMediatR(cfg =>
+        cfg.RegisterServicesFromAssembly(typeof(CreateTenantCommand).Assembly));
 
-
-//OutBoxProcessor
-builder.Services.AddHostedService<ClaimFlow.Infrastructure.BackgroundServices.OutboxProcessor>();
-
-
-//MassTransit
-
-builder.Services.AddMassTransit(x =>
-{
-    x.AddConsumers(typeof(ClaimSubmittedConsumer).Assembly);
-
-    x.UsingRabbitMq((context, cfg) =>
+    // Database
+    builder.Services.AddDbContext<AppDbContext>(options =>
     {
-        cfg.Host("localhost", "/", h =>
+        options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"),
+            npgsqlOptions => npgsqlOptions.UseVector());
+    });
+    builder.Services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+
+    // Validation
+    builder.Services.AddValidatorsFromAssembly(typeof(CreateTenantCommand).Assembly);
+    builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
+
+    // Outbox processor
+    builder.Services.AddHostedService<ClaimFlow.Infrastructure.BackgroundServices.OutboxProcessor>();
+
+    // MassTransit + RabbitMQ
+    builder.Services.AddMassTransit(x =>
+    {
+        x.AddConsumers(typeof(ClaimSubmittedConsumer).Assembly);
+
+        x.UsingRabbitMq((context, cfg) =>
         {
-            h.Username("claimflow");
-            h.Password("claimflow_dev_2026");
+            var rabbitConfig = builder.Configuration.GetSection("RabbitMq");
+            cfg.Host(rabbitConfig["Host"] ?? "localhost", "/", h =>
+            {
+                h.Username(rabbitConfig["Username"] ?? "claimflow");
+                h.Password(rabbitConfig["Password"] ?? "claimflow_dev_2026");
+            });
+
+            cfg.ConfigureEndpoints(context);
+        });
+    });
+
+    // Fraud detection
+    builder.Services.AddScoped<IEmbeddingService, FakeEmbeddingService>();
+    builder.Services.AddScoped<IFraudDetectionService, FraudDetectionService>();
+
+    // Reporting
+    builder.Services.AddScoped<IReportingService, ReportingService>();
+
+    // Hangfire
+    builder.Services.AddHangfire(config =>
+        config.UsePostgreSqlStorage(c =>
+            c.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection")!)));
+    builder.Services.AddHangfireServer();
+
+    builder.Services.AddScoped<PremiumRenewalReminderJob>();
+    builder.Services.AddScoped<StaleClaimAlertJob>();
+    builder.Services.AddScoped<PolicyExpirationJob>();
+    builder.Services.AddScoped<MonthlyStatementJob>();
+
+    // Health checks
+    builder.Services.AddHealthChecks()
+        .AddNpgSql(
+            builder.Configuration.GetConnectionString("DefaultConnection")!,
+            name: "postgresql",
+            tags: new[] { "db", "ready" });
+
+    // OpenTelemetry tracing
+    builder.Services.AddOpenTelemetry()
+        .ConfigureResource(resource => resource.AddService("ClaimFlow.Api"))
+        .WithTracing(tracing =>
+        {
+            tracing
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddSource("MassTransit")
+                .AddOtlpExporter(opt =>
+                {
+                    opt.Endpoint = new Uri(builder.Configuration["OpenTelemetry:Endpoint"] ?? "http://localhost:4317");
+                });
         });
 
-        cfg.ConfigureEndpoints(context);
+
+    var app = builder.Build();
+
+    // Serilog request logging (replaces default Microsoft request logging)
+    app.UseSerilogRequestLogging();
+
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI();
+    }
+
+    app.UseMiddleware<ExceptionHandlingMiddleware>();
+    app.UseHttpsRedirection();
+    app.UseHangfireDashboard("/hangfire");
+
+    // Health check endpoints
+    app.MapHealthChecks("/health/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+    {
+        Predicate = check => check.Tags.Contains("ready")
     });
-});
+    app.MapHealthChecks("/health/live", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+    {
+        Predicate = _ => false // liveness = just "is the app running?"
+    });
 
+    // API endpoints
+    app.MapGet("/api/health", () => Results.Ok("Api is running"));
+    app.MapTenantEndpoint();
+    app.MapCustomerEndpoint();
+    app.MapPolicyEndpoint();
+    app.MapClaimEndpoint();
+    app.MapReportingEndpoints();
 
+    // Hangfire recurring jobs
+    RecurringJob.AddOrUpdate<PremiumRenewalReminderJob>(
+        "premium-renewal-reminder",
+        job => job.ExecuteAsync(),
+        Cron.Daily(9, 0));
 
+    RecurringJob.AddOrUpdate<StaleClaimAlertJob>(
+        "stale-claim-alert",
+        job => job.ExecuteAsync(),
+        Cron.Daily(8, 0));
 
+    RecurringJob.AddOrUpdate<PolicyExpirationJob>(
+        "policy-expiration",
+        job => job.ExecuteAsync(),
+        Cron.Daily(0, 0));
 
+    RecurringJob.AddOrUpdate<MonthlyStatementJob>(
+        "monthly-statement",
+        job => job.ExecuteAsync(),
+        Cron.Monthly(1, 6, 0));
 
-var app = builder.Build();
-
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    app.Run();
 }
-
-
-app.UseMiddleware<ExceptionHandlingMiddleware>();
-
-app.UseHttpsRedirection();
-
-
-
-//End points
-app.MapGet("/api/health", () =>
+catch (Exception ex)
 {
-    return Results.Ok("Api is running");
-});
-
-
-app.MapTenantEndpoint();
-
-app.MapCustomerEndpoint();
-
-app.MapPolicyEndpoint();
-
-app.MapClaimEndpoint();
-
-
-app.Run();
-
+    Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+    Log.CloseAndFlush();
+}

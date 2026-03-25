@@ -1,6 +1,7 @@
 using ClaimFlow.Application.Features.Claims.Queries.GetClaimByIdQuery;
 using ClaimFlow.Application.Features.Claims.Commands;
 using ClaimFlow.Application.Features.Claims.TransitionClaimCmd;
+using ClaimFlow.Application.Interfaces;
 using MediatR;
 
 namespace ClaimFlow.Api.Extensions
@@ -28,6 +29,12 @@ namespace ClaimFlow.Api.Extensions
             {
                 var claim = await mediator.Send(new GetClaimByIdQuery(id));
                 return claim is null ? Results.NotFound() : Results.Ok(claim);
+            });
+
+            group.MapGet("/{id:guid}/fraud-check", async (Guid id, IFraudDetectionService fraudService) =>
+            {
+                var result = await fraudService.CheckFraudAsync(id);
+                return Results.Ok(result);
             });
         }
     }
